@@ -14,6 +14,7 @@ use Piwik\API\Request;
 use Piwik\Common;
 use Piwik\Config;
 use Piwik\DataTable;
+use Piwik\DataTable\Filter\Pattern as DataTableFilterPattern;
 use Piwik\Date;
 use Piwik\Piwik;
 use Piwik\Site;
@@ -192,6 +193,7 @@ class API extends \Piwik\Plugin\API
         }
 
         $filterSortOrder = Common::getRequestVar('filter_sort_order', false, 'string');
+        $segment = $this->appendSearchToSegment($segment);
 
         $dataTable = $this->loadLastVisitsDetailsFromDatabase($idSites, $period, $date, $segment, $filterOffset, $filterLimit, $minTimestamp, $filterSortOrder, $visitorId = false);
         $this->addFilterToCleanVisitors($dataTable, $flat, $doNotFetchActions);
@@ -210,6 +212,66 @@ class API extends \Piwik\Plugin\API
         $dataTable->disableFilter('Limit'); // limit is already applied here
 
         return $dataTable;
+    }
+
+    private function appendSearchToSegment($segment)
+    {
+        $filterPattern = $this->getActionUrlFilterPattern();
+
+        if ($filterPattern === null) {
+            return $segment;
+        }
+
+        $filterPattern = $this->sanitizeSegmentValue($filterPattern);
+        $pageUrlCondition = 'pageUrl=@' . $filterPattern;
+
+        if (!empty($segment)) {
+            return $segment . ';' . $pageUrlCondition;
+        }
+
+        return $pageUrlCondition;
+    }
+
+    private function getActionUrlFilterPattern(): ?string
+    {
+        $filterColumn = Common::getRequestVar('filter_column', '', 'string');
+        $filterColumnRecursive = Common::getRequestVar('filter_column_recursive', '', 'string');
+
+        $searchTargetsLabel = $filterColumn === 'label' || $filterColumnRecursive === 'label';
+
+        if (!$searchTargetsLabel) {
+            return null;
+        }
+
+        $pattern = Common::getRequestVar('filter_pattern', '', 'string');
+
+        if ($pattern === '') {
+            $pattern = Common::getRequestVar('filter_pattern_recursive', '', 'string');
+        }
+
+        if ($pattern === '') {
+            return null;
+        }
+
+        $leadingEscapes = [
+            '\?' => '?',
+            '\+' => '+',
+            '\*' => '*',
+        ];
+
+        foreach ($leadingEscapes as $escaped => $plain) {
+            if (strpos($pattern, $escaped) === 0) {
+                $pattern = $plain . substr($pattern, 2);
+                break;
+            }
+        }
+
+        return $pattern;
+    }
+
+    private function sanitizeSegmentValue($value)
+    {
+        return str_replace([';', ','], '', $value);
     }
 
     /**

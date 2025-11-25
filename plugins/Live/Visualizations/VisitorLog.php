@@ -98,7 +98,7 @@ class VisitorLog extends Visualization
         $this->config->disable_row_actions = true;
         $this->config->datatable_js_type = 'VisitorLog';
         $this->config->enable_sort       = false;
-        $this->config->show_search       = false;
+        $this->config->show_search       = true;
         $this->config->show_exclude_low_population = false;
         $this->config->show_offset_information     = false;
         $this->config->show_all_views_icons        = false;
